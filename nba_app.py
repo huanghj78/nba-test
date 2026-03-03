@@ -1,101 +1,110 @@
 import streamlit as st
 import plotly.graph_objects as go
+import random
+import time
 
 # --- 1. 页面配置 ---
-st.set_page_config(page_title="NBA灵魂球星匹配", page_icon="🏀", layout="wide")
+st.set_page_config(page_title="NBA 灵魂匹配", page_icon="🏀", layout="centered")
 
-# --- 2. 注入自适应样式 ---
+# --- 2. 炫酷 CSS 注入 ---
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; }
-    div.stButton > button:first-child {
-        background: linear-gradient(45deg, #1d428a, #c8102e);
-        color: white; border: none; width: 100%; height: 3em;
-        font-size: 20px; font-weight: bold; border-radius: 10px;
+    .main { background-color: #0e1117; color: white; }
+    .scanning {
+        height: 4px;
+        background: linear-gradient(to right, rgba(29, 66, 138, 0), #c8102e, rgba(29, 66, 138, 0));
+        position: relative;
+        animation: scan 2s linear infinite;
+        box-shadow: 0 0 15px #c8102e;
     }
-    .result-text { font-size: 24px; font-weight: bold; color: #ff4b4b; }
+    @keyframes scan { 0% { top: 0px; } 100% { top: 200px; } }
+    .neon-box {
+        padding: 20px; border-radius: 15px; background: #111;
+        border: 2px solid #1d428a; text-align: center; margin-bottom: 20px;
+    }
+    .star-name {
+        font-family: 'Arial Black', sans-serif; font-size: 40px;
+        background: linear-gradient(90deg, #fff, #1d428a, #c8102e);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. 核心数据定义 ---
-def get_star_result(tag):
-    stars = {
-        "Curry": {
-            "name": "斯蒂芬·库里 (Stephen Curry)",
-            "values": [99, 92, 70, 75, 88], # 得分, 传球, 防守, 力量, 意识
-            "color": "#1d428a",
-            "desc": "你是【划时代的狙击手】！你用无解的三分和灵动的跑位解构了防守。只要你过半场，对手就得窒息。"
-        },
-        "Kobe": {
-            "name": "科比·布莱恩特 (Kobe Bryant)",
-            "values": [98, 80, 95, 90, 100],
-            "color": "#552583",
-            "desc": "你是【曼巴精神的化身】！偏执的努力、无解的单打是你的勋章。在你的字典里，从来没有'认输'二字。"
-        },
-        "LeBron": {
-            "name": "勒布朗·詹姆斯 (LeBron James)",
-            "values": [95, 98, 92, 99, 96],
-            "color": "#c8102e",
-            "desc": "你是【球场全能国王】！你拥有坦克般的身体和上帝视角。你是球队的绝对核心，能用一百种方式赢下比赛。"
-        }
-    }
-    return stars[tag]
+# --- 3. 50位球星数据库 ---
+star_database = {
+    "控球后卫 (PG)": ["斯蒂芬·库里", "魔术师约翰逊", "克里斯·保罗", "凯里·欧文", "达米安·利拉德", "拉塞尔·威斯布鲁克", "谢伊·亚历山大", "卢卡·东契奇", "特雷·杨", "约翰·斯托克顿"],
+    "得分后卫 (SG)": ["科比·布莱恩特", "迈克尔·乔丹", "阿伦·艾弗森", "詹姆斯·哈登", "德文·布克", "克莱·汤普森", "雷·阿伦", "安东尼·爱德华兹", "多诺万·米切尔", "德维恩·韦德"],
+    "小前锋 (SF)": ["勒布朗·詹姆斯", "凯文·杜兰特", "卡哇伊·莱昂纳德", "杰森·塔图姆", "吉米·巴特勒", "斯科蒂·皮蓬", "保罗·乔治", "卡梅隆·安东尼", "布兰登·英格拉姆", "安德鲁·维金斯"],
+    "大前锋 (PF)": ["蒂姆·邓肯", "扬尼斯·阿德托昆博", "凯文·加内特", "德克·诺维茨基", "安东尼·戴维斯", "锡安·威廉姆森", "保罗·班凯罗", "德雷蒙德·格林", "小贾巴里·帕克", "卡尔·马龙"],
+    "中锋 (C)": ["尼古拉·约基奇", "乔尔·恩比德", "沙奎尔·奥尼尔", "维克托·文班亚马", "切特·霍姆格伦", "巴姆·阿德巴约", "多曼塔斯·萨博尼斯", "鲁迪·戈贝尔", "卡尔·安东尼·唐斯", "帕特里克·尤因"]
+}
 
-# --- 4. 绘制雷达图函数 ---
-def draw_radar(data):
-    categories = ['得分', '传球', '防守', '身体素质', '篮球智商']
-    fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(
-        r=data['values'], theta=categories, fill='toself',
-        name=data['name'], line_color=data['color']
-    ))
-    fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-        showlegend=False, height=450,
-        margin=dict(l=80, r=80, t=20, b=20)
-    )
-    return fig
+# --- 4. 界面设计 ---
+st.title("🏀 NBA 灵魂匹配 (50人深度版)")
+st.write("系统将通过 10 个心理偏好维度，检索最契合你的巨星基因。")
 
-# --- 5. 交互界面 ---
-st.title("🏀 NBA 灵魂球星匹配测试")
-st.write("想知道你的球风最像哪位巨星？完成测试，生成专属战力雷达图！")
-
-with st.sidebar:
-    st.header("⚙️ 个人偏好设置")
-    difficulty = st.slider("你的实战对抗强度", 1, 10, 5)
-    st.info("设置会微调最终的战力值")
-
-# 测试表单
-with st.container():
-    col_q1, col_q2 = st.columns(2)
-    with col_q1:
-        q1 = st.radio("1. 你的第一进攻选择是？", ["超远三分", "后仰跳投/突破", "冲击篮下强打"])
-    with col_q2:
-        q2 = st.radio("2. 关键时刻你会？", ["拉开单干，投绝杀球", "吸引包夹，助攻队友", "制造杀伤，走上罚球线"])
+with st.form("deep_test"):
+    pos = st.selectbox("📍 预设位置 (选择你在场上的倾向)", list(star_database.keys()))
     
-    q3 = st.select_slider("3. 你的防守投入度有多高？", options=["眼神防守", "中规中矩", "死亡缠绕"])
+    ans_list = []
+    questions = [
+        "1. 在团队项目中，你更享受？", "2. 面对高压环境，你的本能反应是？", "3. 你最希望拥有哪种天赋？",
+        "4. 你的沟通风格更倾向于？", "5. 遇到困难时，你第一反应是？", "6. 你更看重什么样的成就感？",
+        "7. 在陌生的社交场合，你会？", "8. 你对'力量'的理解更倾向于？", "9. 你理想的工作方式是？",
+        "10. 如果人生是一场游戏，你希望自己是？"
+    ]
+    options = [["A. 掌控全局", "B. 一击制胜", "C. 默默支撑"], ["A. 寻找策略", "B. 正面硬刚", "C. 稳住心态"]] * 5 # 简化示意
 
-# 生成结果
-if st.button("🚀 点击生成我的球员档案"):
-    # 简单的匹配逻辑判别
-    if "三分" in q1: result_tag = "Curry"
-    elif "后仰" in q1 or "单干" in q2: result_tag = "Kobe"
-    else: result_tag = "LeBron"
+    for i in range(10):
+        a = st.radio(questions[i], ["A. 偏向灵巧与策略", "B. 偏向爆发与主宰", "C. 偏向稳定与基石"], key=f"q{i}")
+        ans_list.append(a)
     
-    data = get_star_result(result_tag)
-    
-    st.divider()
-    
-    # 结果展示区
-    res_col1, res_col2 = st.columns([1, 1.2])
-    
-    with res_col1:
-        st.markdown(f"### 匹配结果：\n<p class='result-text'>{data['name']}</p>", unsafe_allow_html=True)
-        st.write(data['desc'])
-        st.metric("核心能力评分 (OVR)", value=int(sum(data['values'])/5 + difficulty))
-        st.success("💡 你的球风非常适合目前的快节奏小球体系！")
-        
-    with res_col2:
-        st.plotly_chart(draw_radar(data), use_container_width=True)
+    # 这一行是关键：定义 submitted 变量
+    submitted = st.form_submit_button("🚀 开启基因扫描")
 
-    st.balloons()
+# --- 5. 结果处理 (确保在 form 之外，逻辑紧随其后) ---
+if submitted:
+    # 动画转场
+    st.markdown("<div class='scanning'></div>", unsafe_allow_html=True)
+    status = st.empty()
+    bar = st.progress(0)
+    for p in range(1, 101, 20):
+        status.markdown(f"`⚡ 正在分析基因序列... {p}%`")
+        bar.progress(p)
+        time.sleep(0.3)
+    status.empty()
+    bar.empty()
+
+    # 简单计算匹配索引
+    a_count = sum(1 for x in ans_list if "A" in x)
+    b_count = sum(1 for x in ans_list if "B" in x)
+    
+    candidates = star_database[pos]
+    # 根据 A/B/C 的比例决定取 10 人名单中的哪一位
+    if a_count >= 5: idx = random.randint(0, 3)
+    elif b_count >= 5: idx = random.randint(4, 6)
+    else: idx = random.randint(7, 9)
+    
+    target = candidates[idx]
+    base_val = [random.randint(88, 99) for _ in range(5)]
+
+    # 展示结果
+    st.markdown(f"""<div class="neon-box">
+        <p style='color: #888; letter-spacing: 2px;'>LEGEND DETECTED</p>
+        <h1 class="star-name">{target}</h1>
+    </div>""", unsafe_allow_html=True)
+
+    c1, c2 = st.columns([1, 1.2])
+    with c1:
+        st.write("### 🧬 属性报告")
+        st.metric("基因同步率", f"{random.randint(94, 99)}%")
+        attrs = ['意识', '侵略性', '稳定性', '技巧性', '影响力']
+        for a, v in zip(attrs, base_val):
+            st.write(f"**{a}**: `{v}`")
+
+    with c2:
+        fig = go.Figure(go.Scatterpolar(r=base_val, theta=['意识', '侵略性', '稳定性', '技巧性', '影响力'], fill='toself', line_color='#c8102e'))
+        fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, paper_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.success("✅ 测评完成！截图分享到小红书。")
